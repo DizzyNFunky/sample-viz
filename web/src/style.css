@@ -23,7 +23,7 @@ button, input, select { font: inherit; color: inherit; }
   grid-template-columns: 240px 1fr 260px;
   grid-template-rows: auto 1fr auto;
   grid-template-areas: "top top top" "lib stage proc" "status status status";
-  height: 100vh;
+  height: 100%;
 }
 
 .topbar {
@@ -245,4 +245,34 @@ dialog code { color: var(--accent); }
   }
   .topbar { flex-wrap: wrap; }
   .process, .library { border: none; border-top: 1px solid var(--line); max-height: none; }
+}
+
+/* ---- in-page dialogs */
+dialog.ask p { margin: 0 0 8px; }
+dialog.ask input { width: 100%; }
+button.danger-fill { background: #5a2323; border-color: #7a3030; }
+button.danger-fill:hover:not(:disabled) { background: #6a2a2a; }
+
+/* ---- single-file build: no storage */
+.standalone .library, .standalone #btn-save, .standalone #btn-save-as { display: none; }
+.standalone #app { grid-template-columns: 1fr 260px; grid-template-areas: "top top" "stage proc" "status status"; }
+@media (max-width: 820px) {
+  .standalone #app { grid-template-columns: 1fr; grid-template-areas: "top" "stage" "proc" "status"; grid-template-rows: auto 70vh auto auto; }
+  .tool-options label input[type="range"] { width: 70px; }
+  .status { flex-wrap: wrap; white-space: normal; gap: 4px 14px; }
+}
+.standalone body {
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.standalone #app { border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
+.tools { flex-wrap: wrap; }
+.stage > * { min-width: 0; }
+/* touch screens: hints mention mouse wheel / keys; pinch and the zoom buttons cover it */
+@media (hover: none), (max-width: 820px) {
+  .tool-options .hint { display: none; }
+}
+@media (max-width: 820px) {
+  #app, .standalone #app { grid-template-rows: auto auto auto auto auto; }
+  .stage { grid-template-rows: auto var(--wave-h, 150px) 6px var(--spec-h, 300px) auto; }
 }

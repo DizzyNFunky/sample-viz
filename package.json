@@ -10,7 +10,8 @@
     "dev:worker": "wrangler dev --config worker/wrangler.toml",
     "deploy": "npm run build && wrangler deploy --config worker/wrangler.toml",
     "typecheck": "tsc -p web && tsc -p worker",
-    "test": "cargo test --manifest-path dsp/Cargo.toml --release && npm run build:wasm && node --test test/*.test.mjs"
+    "test": "cargo test --manifest-path dsp/Cargo.toml --release && npm run build:wasm && node --test test/*.test.mjs",
+    "build:standalone": "npm run build:wasm && vite build --mode standalone && node scripts/build-standalone.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261117.1",

@@ -8,7 +8,14 @@ import { loadConfig, saveConfig, Storage } from "./storage";
 import { clamp, formatHz, formatTime } from "./util";
 import { SpectrogramView } from "./views/spectrogram";
 import { WaveformView } from "./views/waveform";
-import { decodeAudio, encodeWav } from "./wav";
+import { demoSound } from "./demo";
+import { askConfirm, askText } from "./dialogs";
+import { decodeAudio, DecodedAudio, encodeWav } from "./wav";
+import { zipSingle } from "./zip";
+
+/** Single-file build with no storage (see scripts/build-standalone.mjs). */
+const STANDALONE = import.meta.env.MODE === "standalone";
+if (STANDALONE) document.documentElement.classList.add("standalone");
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -381,12 +388,16 @@ $("btn-zoom-sel").onclick = () => ed.selection && ed.zoomTo(ed.selection);
 
 // ------------------------------------------------------------------ files
 
-function confirmDiscard(): boolean {
-  return !ed.doc || !(ed.dirty || ed.hasPending) || confirm("Discard unsaved changes to the current file?");
+async function confirmDiscard(): Promise<boolean> {
+  if (!ed.doc || !(ed.dirty || ed.hasPending)) return true;
+  return askConfirm("Discard unsaved changes to the current file?", "Discard", true);
 }
 
 async function openBytes(name: string, key: string | null, bytes: ArrayBuffer) {
-  const audio = await decodeAudio(bytes);
+  openAudio(name, key, await decodeAudio(bytes));
+}
+
+function openAudio(name: string, key: string | null, audio: DecodedAudio) {
   if (!audio.channels.length || !audio.channels[0].length) throw new Error("File contains no audio");
   player.stop();
   const doc: Doc = { name, key, sampleRate: audio.sampleRate, channels: audio.channels, format: audio.format };
@@ -397,12 +408,12 @@ async function openBytes(name: string, key: string | null, bytes: ArrayBuffer) {
 }
 
 async function openLocal(file: File) {
-  if (!confirmDiscard()) return;
+  if (!(await confirmDiscard())) return;
   await busy(`Decoding ${file.name}…`, async () => openBytes(file.name, null, await file.arrayBuffer()));
 }
 
 async function openFromStorage(key: string) {
-  if (key === ed.doc?.key || !confirmDiscard()) return;
+  if (key === ed.doc?.key || !(await confirmDiscard())) return;
   await busy(`Loading ${key}…`, async () => openBytes(key.split("/").pop()!, key, await storage.get(key)));
 }
 
@@ -421,7 +432,7 @@ async function save(as: boolean) {
   if (!storage.configured) return openSettings();
   let key = doc.key && !as ? doc.key : null;
   if (!key) {
-    key = prompt("Save to storage as (use / for folders):", wavName(doc.key ?? doc.name))?.trim() || null;
+    key = await askText("Save to storage as (use / for folders):", wavName(doc.key ?? doc.name), "Save");
     if (!key) return;
   }
   if (!/\.wav$/i.test(key)) key = wavName(key);
@@ -442,16 +453,43 @@ async function save(as: boolean) {
   });
 }
 
-function download() {
+interface HostDownloads {
+  save(req: { filename: string; data: Blob }): Promise<unknown>;
+}
+const hostDownloads: Promise<HostDownloads | null> =
+  (window as unknown as { claude?: { use(n: string): Promise<HostDownloads | null> } }).claude?.use("downloads") ??
+  Promise.resolve(null);
+
+async function download() {
   const doc = ed.doc;
   if (!doc) return;
   if (ed.hasPending) ed.applyPending();
-  const url = URL.createObjectURL(currentWav());
+  const name = wavName((doc.key ?? doc.name).split("/").pop()!);
+  const wav = currentWav();
+  const host = STANDALONE ? await hostDownloads : null;
+  if (host) {
+    // Sandboxed hosts only hand out certain file types, so the WAV travels in a zip.
+    try {
+      await host.save({ filename: name.replace(/\.wav$/i, ".zip"), data: await zipSingle(name, wav) });
+      status(`Saved ${name} (zipped)`);
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      if (code !== "declined") status(`Download unavailable here (${code ?? "error"})`, true);
+    }
+    return;
+  }
+  const url = URL.createObjectURL(wav);
   const a = document.createElement("a");
   a.href = url;
-  a.download = wavName((doc.key ?? doc.name).split("/").pop()!);
+  a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+async function openDemo() {
+  if (!(await confirmDiscard())) return;
+  player.stop();
+  openAudio("example.wav", null, demoSound());
 }
 
 async function uploadFiles(files: File[]) {
@@ -485,7 +523,8 @@ $("btn-open").onclick = () => fileInput.click();
 $("empty-open").onclick = () => fileInput.click();
 $("btn-save").onclick = () => void save(false);
 $("btn-save-as").onclick = () => void save(true);
-$("btn-download").onclick = download;
+$("btn-download").onclick = () => void download();
+$("empty-demo").onclick = () => void openDemo();
 
 // drag & drop: on the editor opens, on the library uploads
 {
@@ -628,7 +667,8 @@ window.addEventListener("keydown", (e) => {
 // Alt+wheel brush resizing updates the slider too
 ed.onChange(() => syncers.forEach((s) => s()));
 
-void library.refresh();
+if (STANDALONE) openAudio("example.wav", null, demoSound());
+else void library.refresh();
 scheduleRender();
 
 // test/debug handle

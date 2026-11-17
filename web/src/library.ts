@@ -1,5 +1,6 @@
 /** Sidebar listing samples stored in R2. */
 import { SampleInfo, Storage } from "./storage";
+import { askConfirm, askText } from "./dialogs";
 import { formatBytes, formatTime } from "./util";
 
 export interface LibraryHooks {
@@ -118,7 +119,7 @@ export class LibraryPanel {
   }
 
   private async rename(key: string) {
-    const to = prompt("Rename to (use / for folders):", key)?.trim();
+    const to = await askText("Rename to (use / for folders):", key, "Rename");
     if (!to || to === key) return;
     try {
       await this.storage.rename(key, to);
@@ -130,7 +131,7 @@ export class LibraryPanel {
   }
 
   private async remove(key: string) {
-    if (!confirm(`Delete "${key}" from storage? This cannot be undone.`)) return;
+    if (!(await askConfirm(`Delete "${key}" from storage? This cannot be undone.`, "Delete", true))) return;
     try {
       await this.storage.delete(key);
       this.hooks.status(`Deleted ${key}`);

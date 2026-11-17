@@ -57,6 +57,17 @@ npm run typecheck
 npm run build        # wasm + typecheck + web/dist
 ```
 
+### Single-file build (no storage)
+
+```sh
+npm run build:standalone   # -> web/dist-standalone/sample-viz.html
+```
+
+Builds the editor without storage as one self-contained HTML fragment, with CSS,
+JS and wasm inlined. It opens with an example sound and can be hosted on any
+static host. On hosts that provide a `downloads` capability (e.g. a claude.ai
+Artifact), Download hands over the WAV inside a `.zip`.
+
 ## Deploy
 
 ```sh
@@ -98,7 +109,7 @@ Uploads go through the Worker, so Cloudflare's request body limit applies
 | Ctrl+Z, Ctrl+Shift+Z | undo / redo (every op, stroke and point move is a step) |
 | Ctrl+A, Esc | select all / clear selection or region |
 | Delete | delete selection |
-| wheel, Shift+wheel | zoom around pointer / scroll |
+| wheel, Shift+wheel | zoom around pointer / scroll (touch: pinch / two-finger drag) |
 | F, Z, + / − | fit, zoom to selection, zoom |
 | Alt+wheel, [ ] | brush size |
 | Ctrl+S, Ctrl+Shift+S, Ctrl+O | save, save as, open local file |

@@ -77,8 +77,15 @@ export class Dsp {
   private constructor(private ex: Exports) {}
 
   static async load(): Promise<Dsp> {
-    const res = await fetch(wasmUrl);
-    const { instance } = await WebAssembly.instantiateStreaming(res, {});
+    let instance: WebAssembly.Instance;
+    if (wasmUrl.startsWith("data:")) {
+      // single-file build: the module is inlined as base64
+      const bin = atob(wasmUrl.slice(wasmUrl.indexOf(",") + 1));
+      const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+      ({ instance } = await WebAssembly.instantiate(bytes, {}));
+    } else {
+      ({ instance } = await WebAssembly.instantiateStreaming(fetch(wasmUrl), {}));
+    }
     return new Dsp(instance.exports as unknown as Exports);
   }
 

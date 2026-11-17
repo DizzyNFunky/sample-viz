@@ -51,7 +51,7 @@ export class WaveformView {
         ed.hover = null;
         ed.changed();
       },
-    });
+    }, ed);
     canvas.addEventListener("dblclick", (e) => {
       if (this.ed.tool !== "envelope") return;
       const r = canvas.getBoundingClientRect();

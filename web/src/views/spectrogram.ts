@@ -48,7 +48,7 @@ export class SpectrogramView {
         ed.hover = null;
         ed.changed();
       },
-    });
+    }, ed);
   }
 
   private view(): SpecView {

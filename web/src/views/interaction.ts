@@ -63,7 +63,11 @@ export function attachWheel(el: HTMLElement, ed: Editor, onOther?: (e: WheelEven
   );
 }
 
-/** Pointer capture helper: calls handlers with element-relative coordinates. */
+/**
+ * Pointer capture helper: calls handlers with element-relative coordinates.
+ * With an editor passed in, a second finger turns the gesture into
+ * pinch-zoom + two-finger pan of the shared time axis (touch screens have no wheel).
+ */
 export function attachPointer(
   el: HTMLElement,
   h: {
@@ -73,26 +77,82 @@ export function attachPointer(
     hover?(x: number, y: number, e: PointerEvent): void;
     leave?(): void;
   },
+  ed?: Editor,
 ) {
   let active = false;
+  let last: [number, number] = [0, 0];
+  const touches = new Map<number, [number, number]>();
+  let pinch: { dist: number; spp: number; anchor: number } | null = null;
+  // after a pinch, ignore the remaining finger until every finger is lifted
+  let suppress = false;
+
   const pos = (e: PointerEvent) => {
     const r = el.getBoundingClientRect();
-    return [e.clientX - r.left, e.clientY - r.top] as const;
+    return [e.clientX - r.left, e.clientY - r.top] as [number, number];
   };
+  const capture = (id: number) => {
+    try {
+      el.setPointerCapture(id);
+    } catch {
+      /* pointer already gone */
+    }
+  };
+  const spread = () => {
+    const [a, b] = [...touches.values()];
+    return { dist: Math.max(10, Math.hypot(a[0] - b[0], a[1] - b[1])), mid: (a[0] + b[0]) / 2 };
+  };
+
   el.addEventListener("pointerdown", (e) => {
     if (e.button !== 0) return;
-    const [x, y] = pos(e);
-    if (h.down(x, y, e) === false) return;
+    const p = pos(e);
+    if (e.pointerType === "touch") {
+      touches.set(e.pointerId, p);
+      capture(e.pointerId);
+      if (ed && touches.size === 2) {
+        if (active) {
+          active = false;
+          h.up?.(last[0], last[1], e);
+        }
+        const { dist, mid } = spread();
+        pinch = { dist, spp: ed.view.spp, anchor: ed.xToSample(mid) };
+        suppress = true;
+        e.preventDefault();
+        return;
+      }
+      if (suppress || touches.size > 2) return;
+    }
+    if (h.down(p[0], p[1], e) === false) return;
     active = true;
-    el.setPointerCapture(e.pointerId);
+    last = p;
+    capture(e.pointerId);
     e.preventDefault();
   });
   el.addEventListener("pointermove", (e) => {
-    const [x, y] = pos(e);
-    if (active) h.move?.(x, y, e);
-    h.hover?.(x, y, e);
+    const p = pos(e);
+    if (e.pointerType === "touch" && touches.has(e.pointerId)) {
+      touches.set(e.pointerId, p);
+      if (pinch && ed && touches.size === 2) {
+        const { dist, mid } = spread();
+        ed.view.spp = pinch.spp * (pinch.dist / dist);
+        ed.clampView();
+        ed.view.start = pinch.anchor - mid * ed.view.spp;
+        ed.clampView();
+        ed.changed();
+        return;
+      }
+    }
+    if (active) {
+      last = p;
+      h.move?.(p[0], p[1], e);
+    }
+    if (e.pointerType !== "touch") h.hover?.(p[0], p[1], e);
   });
   const end = (e: PointerEvent) => {
+    if (e.pointerType === "touch") {
+      touches.delete(e.pointerId);
+      if (touches.size < 2) pinch = null;
+      if (touches.size === 0) suppress = false;
+    }
     if (!active) return;
     active = false;
     const [x, y] = pos(e);
@@ -100,5 +160,7 @@ export function attachPointer(
   };
   el.addEventListener("pointerup", end);
   el.addEventListener("pointercancel", end);
-  el.addEventListener("pointerleave", () => h.leave?.());
+  el.addEventListener("pointerleave", (e) => {
+    if (e.pointerType !== "touch") h.leave?.();
+  });
 }
