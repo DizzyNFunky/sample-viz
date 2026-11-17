@@ -1,0 +1,22 @@
+name = "sample-viz"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+# The built editor (vite build -> web/dist) is served as static assets.
+# /api/* always hits the Worker first; everything else falls back to index.html.
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[[r2_buckets]]
+binding = "SAMPLES"
+bucket_name = "sample-viz-samples"
+
+[vars]
+# Optional: allow a frontend hosted on another origin (e.g. "https://samples.example.com").
+ALLOWED_ORIGIN = ""
+
+# Secrets (set with `wrangler secret put API_TOKEN`, or worker/.dev.vars locally):
+#   API_TOKEN  - bearer token required for every /api request

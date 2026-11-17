@@ -1,0 +1,21 @@
+{
+  "name": "sample-viz",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:wasm": "cargo build --manifest-path dsp/Cargo.toml --release --target wasm32-unknown-unknown && mkdir -p web/src/dsp && cp dsp/target/wasm32-unknown-unknown/release/dsp.wasm web/src/dsp/dsp.wasm",
+    "build:web": "vite build",
+    "build": "npm run build:wasm && npm run typecheck && npm run build:web",
+    "dev": "npm run build:wasm && vite",
+    "dev:worker": "wrangler dev --config worker/wrangler.toml",
+    "deploy": "npm run build && wrangler deploy --config worker/wrangler.toml",
+    "typecheck": "tsc -p web && tsc -p worker",
+    "test": "cargo test --manifest-path dsp/Cargo.toml --release && npm run build:wasm && node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261117.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.8",
+    "wrangler": "^4.164.0"
+  }
+}

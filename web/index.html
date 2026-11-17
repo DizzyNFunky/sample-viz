@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sample-viz</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M1 8h2l2-6 3 12 3-9 2 3h2' fill='none' stroke='%235fd3c3' stroke-width='1.6'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="brand">sample<b>viz</b></div>
+        <div class="file">
+          <span id="file-name" class="file-name">No file</span>
+          <span id="file-info" class="muted"></span>
+          <span id="file-dirty" class="dirty" hidden>●</span>
+        </div>
+        <div class="group">
+          <button id="btn-play" class="icon" title="Play / stop (Space)">▶</button>
+          <button id="btn-loop" class="toggle" title="Loop selection (L)">Loop</button>
+        </div>
+        <div class="group">
+          <button id="btn-undo" title="Undo (Ctrl+Z)">Undo</button>
+          <button id="btn-redo" title="Redo (Ctrl+Shift+Z)">Redo</button>
+        </div>
+        <div class="group">
+          <button id="btn-zoom-out" class="icon" title="Zoom out (-)">−</button>
+          <button id="btn-zoom-fit" title="Fit (F)">Fit</button>
+          <button id="btn-zoom-sel" title="Zoom to selection (Z)">Sel</button>
+          <button id="btn-zoom-in" class="icon" title="Zoom in (+)">+</button>
+        </div>
+        <div class="spacer"></div>
+        <div class="group">
+          <button id="btn-open" title="Open a local file (Ctrl+O)">Open…</button>
+          <button id="btn-save" class="primary" title="Save to storage (Ctrl+S)">Save</button>
+          <button id="btn-save-as" title="Save to storage under a new name">Save as…</button>
+          <button id="btn-download" title="Download as WAV">Download</button>
+        </div>
+        <input id="file-input" type="file" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3,.ogg" hidden />
+      </header>
+
+      <aside class="library">
+        <div class="panel-head">
+          <h2>Library</h2>
+          <div class="group">
+            <button id="lib-refresh" class="icon small" title="Refresh">⟳</button>
+            <button id="lib-settings" class="icon small" title="Storage settings">⚙</button>
+          </div>
+        </div>
+        <div class="lib-actions">
+          <input id="lib-filter" type="search" placeholder="Filter…" />
+          <button id="lib-upload" class="small" title="Upload files to storage">Upload</button>
+          <input id="lib-upload-input" type="file" accept="audio/*" multiple hidden />
+        </div>
+        <div id="lib-status" class="lib-status"></div>
+        <ul id="lib-list" class="lib-list"></ul>
+      </aside>
+
+      <main class="stage" id="stage">
+        <div class="toolbar">
+          <div class="tools" role="radiogroup" aria-label="Tool">
+            <span class="tool-group-label">Time</span>
+            <button data-tool="select" title="Select (V)">Select</button>
+            <button data-tool="envelope" title="Gain envelope (E)">Envelope</button>
+            <button data-tool="pencil" title="Draw samples (P)">Pencil</button>
+            <span class="tool-group-label">Spectral</span>
+            <button data-tool="brush" title="Spectral brush (B)">Brush</button>
+            <button data-tool="rect" title="Time-frequency region (R)">Region</button>
+          </div>
+          <div id="tool-options" class="tool-options"></div>
+        </div>
+
+        <section class="lane lane-wave">
+          <canvas id="wave"></canvas>
+        </section>
+        <div class="splitter" id="splitter" title="Drag to resize"></div>
+        <section class="lane lane-spec">
+          <canvas id="spec-img"></canvas>
+          <canvas id="spec-ovl"></canvas>
+        </section>
+
+        <div class="specbar">
+          <label>FFT
+            <select id="spec-fft">
+              <option>512</option><option>1024</option><option selected>2048</option><option>4096</option><option>8192</option>
+            </select>
+          </label>
+          <label>Scale
+            <select id="spec-scale"><option value="log">Log</option><option value="lin">Linear</option></select>
+          </label>
+          <label>Floor <input id="spec-floor" type="range" min="-140" max="-40" step="1" value="-100" /><output id="spec-floor-v"></output></label>
+          <label>Ceiling <input id="spec-ceil" type="range" min="-40" max="12" step="1" value="0" /><output id="spec-ceil-v"></output></label>
+          <label class="check"><input id="spec-tint" type="checkbox" checked /> Mask tint</label>
+          <div class="spacer"></div>
+          <div id="pending" class="pending" hidden>
+            <span id="pending-label">Pending edits</span>
+            <label class="check" title="Hear the original instead (A/B)"><input id="pending-bypass" type="checkbox" /> Bypass</label>
+            <button id="pending-discard" class="small">Discard</button>
+            <button id="pending-apply" class="small primary" title="Apply (Enter)">Apply</button>
+          </div>
+        </div>
+
+        <div id="empty" class="empty">
+          <div>
+            <p class="big">Drop an audio file here</p>
+            <p class="muted">or open one from the library / <button id="empty-open" class="link">your computer</button></p>
+            <p class="muted small">WAV is decoded natively at its original rate and bit depth; other formats use the browser decoder.</p>
+          </div>
+        </div>
+        <div id="drop" class="drop" hidden><p>Drop to open</p></div>
+      </main>
+
+      <aside class="process">
+        <div class="panel-head"><h2>Process</h2></div>
+        <div id="process-scope" class="scope muted"></div>
+        <div id="process-list"></div>
+      </aside>
+
+      <footer class="status">
+        <span id="st-pos"></span>
+        <span id="st-sel"></span>
+        <span id="st-hover"></span>
+        <span class="spacer"></span>
+        <span id="st-msg" class="msg"></span>
+      </footer>
+    </div>
+
+    <dialog id="settings">
+      <form method="dialog">
+        <h3>Storage</h3>
+        <p class="muted small">Samples are stored in Cloudflare R2 behind the sample-viz Worker. The token is the Worker's <code>API_TOKEN</code> secret and is kept in this browser's local storage.</p>
+        <label>API base URL <input id="set-base" type="url" placeholder="(same origin)" /></label>
+        <label>Token <input id="set-token" type="password" autocomplete="off" /></label>
+        <p id="set-result" class="small"></p>
+        <div class="row">
+          <button id="set-test" type="button">Test</button>
+          <span class="spacer"></span>
+          <button value="cancel" formnovalidate>Cancel</button>
+          <button id="set-save" value="save" class="primary">Save</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
